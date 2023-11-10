@@ -34,7 +34,6 @@ POLLING_LEITURA:
     andi r9, r7, MASK_DATA
     beq r8, r0, POLLING_LEITURA # loop enquanto não há caractere 
 
-    beq r9, r13, INTERPRETADOR_DE_COMANDOS # Verifica se enter: fim do buffer
     stb r9, 0(r12) # Armazena no buffer o caracter
     addi r12, r12, 1 # Avança no buffer[++i]
 
@@ -44,12 +43,52 @@ POLLING_TECLADO:
     andhi r10, r7, MASK_WSPACE
     beq r10, r0, POLLING_TECLADO
     stwio r9, 0(r4)
+    beq r9, r13, INTERPRETADOR_DE_COMANDOS # Verifica se enter: fim do buffer
     br POLLING_LEITURA
 
+# Interpretador não faz validação do que foi digitado (não trata casos diferentes)
 INTERPRETADOR_DE_COMANDOS:
-    # movia r12, BUFFER Limpar buffer (NO FINAL!!!!!)
-    br POLLING_LEITURA
+    movia r12, BUFFER # Armazena o valor buffer[0] em r12
+    ldb r14, 0(r12)
     
+    # Switch/case
+    movi r6, 0x30
+    beq r14, r6, SE_0
+    movi r6, 0x31
+    beq r14, r6, SE_1
+    movi r6, 0x32
+    beq r14, r10, SE_2
+    
+SE_0:
+    addi r12, r12, 1
+    ldb r14, 0(r12)
+
+    beq r14, r0, SE_00
+    call CANCELA_LED
+    br RETORNA
+
+    SE_00:
+        call PISCA_LED
+
+    br RETORNA
+SE_1:
+    call NUM_TRIANGULAR
+    br RETORNA
+SE_2:
+    addi r12, r12, 1
+    ldb r14, 0(r12)
+
+    beq r14, r0, SE_20
+    call CANCELA_CRONOMETRO
+    br RETORNA
+
+    SE_20:
+        call INICIA_CRONOMETRO
+
+RETORNA:
+    movia r12, BUFFER # Limpar buffer
+    br POLLING_LEITURA
+
 TEXT_STRING:
 .asciz "\nEntre com o comando: "
 
