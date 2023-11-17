@@ -52,18 +52,20 @@ INTERPRETADOR_DE_COMANDOS:
     ldb r14, 0(r12)
     
     # Switch/case
-    movi r6, 0x30
+    movi r6, 0x30 # '0'
     beq r14, r6, SE_0
-    movi r6, 0x31
+    movi r6, 0x31 # '1'
     beq r14, r6, SE_1
-    movi r6, 0x32
+    movi r6, 0x32 # '2'
     beq r14, r10, SE_2
     
 SE_0:
     addi r12, r12, 1
     ldb r14, 0(r12)
 
-    beq r14, r0, SE_00
+    movi r6, 0x30 # '0'
+
+    beq r14, r6, SE_00
     call CANCELA_LED
     br RETORNA
 
@@ -78,7 +80,9 @@ SE_2:
     addi r12, r12, 1
     ldb r14, 0(r12)
 
-    beq r14, r0, SE_20
+    movi r6, 0x30
+
+    beq r14, r6, SE_20
     call CANCELA_CRONOMETRO
     br RETORNA
 
@@ -92,6 +96,7 @@ RETORNA:
 TEXT_STRING:
 .asciz "\nEntre com o comando: "
 
+.global BUFFER
 BUFFER:
 .skip 20
 
