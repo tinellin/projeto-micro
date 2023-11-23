@@ -206,11 +206,173 @@ RETORNA:
     movia r7, BUFFER # Limpar buffer
     br LOOP
 
+.global LED
+LED:
+    # ------------------------- Prologo ------------------------- #
+    addi sp, sp, -40 # make a 36-byte frame
+    stw ra, 36(sp)
+    stw fp, 32(sp)
+    # -------- Registradores de próposito geral (caller) -------- # 
+    stw r8, 28(sp)
+    stw r9, 24(sp)
+    stw r10, 20(sp)
+    stw r11, 16(sp)
+    stw r12, 12(sp)
+    stw r13, 8(sp)
+    stw r14, 4(sp)
+    stw r15, 0(sp)
+    # ----------------------------------------------------------- # 
+    addi fp, sp, 32
+
+    movia r8, LEDS_VERMELHOS
+    movia r9, BUFFER
+    movia r10, COPIA_END_LED
+
+    /* Carregar bits LED atuais */
+    ldw r11, 0(r10)
+    stwio r11, 0(r8)
+
+    addi r9, r9, 1  # avanca buffer p/ pos 1
+    ldb r10, 0(r9)  # r10: armazena bit de pisca ou cancela LED
+
+    mov r11, r0
+    mov r12, r0
+
+    addi r9, r9, 1 # avanca buffer p/ pos 2
+    ldb r11, 0(r9) # r11: primeiro caractere xx-esimo LED
+    addi r11, r11, -0x30
+    beq r11, r0, NAO_SOMA
+    movi r15, 0x9 # se o primeiro caractere for diferente de 0, somar 9
+    add r11, r11, r15
+
+	NAO_SOMA:
+        addi r9, r9, 1 # avanca buffer p/ pos 3
+        ldb r12, 0(r9) # r12: segundo caractere xx-esimo LED
+        addi r12, r12, -0x30
+        
+        add r11, r12, r11 # soma os 2 caracteres
+
+        movi r15, 0x30
+        bne r10, r15, CANCELA_LED
+
+        movi r14, 0x0
+
+        movi r15, 0x1
+        sll r15, r15, r11 # shift de r15 a esquerda r11 vezes
+        ldwio r14, 0(r8) # obter bits de LEDS_VERMELHOS
+        or r15, r14, r15 # nao apagar os leds que ja estavam acesos, e adicionar um novo led aceso
+        stwio r15, 0(r8)
+
+        br EPILOGO
+
+	CANCELA_LED:
+		movia r15, MASK_1
+		rol r15, r15, r11
+		ldwio r14, 0(r8) # obter bits de LEDS_VERMELHOS
+		and r15, r15, r14 # apagar bit desejado, e manter os outros bits acesos 
+		stwio r15, 0(r8)
+
+# ------------------------- Epilogo ------------------------- #
+EPILOGO:
+	/* Copiar endereco do LED para a memoria */
+	movia r9, COPIA_END_LED
+	ldwio r10, 0(r8)
+	stw r10, 0(r9)
+    
+	ldw ra, 36(sp)
+	ldw fp, 32(sp)
+	ldw r8, 28(sp)
+	ldw r9, 24(sp)
+	ldw r10, 20(sp)
+	ldw r11, 16(sp)
+	ldw r12, 12(sp)
+	ldw r13, 8(sp)
+	ldw r14, 4(sp)
+	ldw r15, 0(sp)
+	addi sp, sp, 40
+
+	ret
+# ----------------------------------------------------------- #
+
+.global NUM_TRIANGULAR
+NUM_TRIANGULAR:
+  # ------------------------- Prologo ------------------------- #
+  addi sp, sp, -40
+  stw ra, 36(sp)
+  stw fp, 32(sp)
+  # -------- Registradores de próposito geral (caller) -------- # 
+  stw r8, 28(sp)
+  stw r9, 24(sp)
+  stw r10, 20(sp)
+  stw r11, 16(sp)
+  stw r12, 12(sp)
+  stw r13, 8(sp)
+  stw r14, 4(sp)
+  stw r15, 0(sp)
+  # ----------------------------------------------------------- # 
+  addi fp, sp, 32
+
+  movia r8, SWITCH_ADDRESS
+  movia r13, DISPLAY_7SEG_ADDRESS
+  mov r10, r0 # resultado
+
+  /* Calcular numero triangular */
+
+  ldwio r9, 0(r8) # obter conteudo do switch
+
+  # beq r9, r0, EPILOGO # se switch = 0, nao calcular num. triangular
+
+  movi r11, 0x1 # contador p/ n*(r10)
+  addi r10, r9, 0x1 # r10 = (n+1)
+  mov r12, r10 # r12 = r10
+
+  LOOP_NUM: /* mudar nome dps */
+    add r10, r12, r10 # n*(r10)
+    addi r11, r11, 0x1 # contador++
+    bne r11, r9, LOOP_NUM
+  
+  srli r10, r10, 1 # n*(r10) / 2
+
+  /* Mostrar no display 7 segmentos */
+  movia r8, DISPLAY_7SEG_MAP
+  # movi r9, 6 # qtd maxima de display 7seg usados pelo switch, maior numero representavel 262.143
+  # movi r11, 0 # i = 0
+  LOOP_7SEG_DISPLAY:
+  # verificação
+
+  slli r10, r10, 2 # obtem indice da tabela (indice = r11 * 2)
+  add r11, r8, r10 # obtem endereco da tabela (r13 = BASE_ADDRESS + indice)
+  ldw r11, 0(r11)
+  stwio r11, 0(r13) # carrega num. triangular no display 7seg                          
+  ret
+
 .org 0x500
+FLAG_LED:
+.word 0
+
+.global COPIA_END_LED
+COPIA_END_LED:
+.word 0
 
 .global BUFFER
 BUFFER:
 .skip 20
+
+/*
+VALOR           CODIGO 7 SEG
+0             0111111 => 0x3f
+1             0000110 => 0x6
+2             1011011 => 0x5b
+3             1001111 => 0x4f
+4             1100110 => 0x66
+5             1101101 => 0x6d
+6             1111101 => 0x7d
+7             0000111 => 0x7
+8             1111111 => 0xff
+9             1100111 => 0x67
+*/
+DISPLAY_7SEG_MAP:
+.word 0x3f, 0x6, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x7, 0xff, 0x67
 
 TEXT_STRING:
 .asciz "\nEntre com o comando: "
