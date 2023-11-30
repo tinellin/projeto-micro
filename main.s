@@ -1,11 +1,3 @@
-.equ MASK_1, 0xFFFFFFFE
-.equ LEDS_VERMELHOS, 0x10000000
-/* ---------------------------- */
-
-.equ SWITCH_ADDRESS, 0x10000040
-.equ DISPLAY_7SEG_ADDRESS, 0x10000020
-
-/* ------------------------ */
 .equ DATA_REGISTER, 0x10001000  
 .equ CONTROL_REGISTER, 0x10001004
 .equ STACK, 0x10000
@@ -15,6 +7,9 @@
 .equ MASK_WSPACE, 0xFFFF
 
 .equ BASE_ADDRESS_TIMER, 0x10002000
+
+.equ PUSH_BUTTON_MASK, 0x10000058
+.equ PUSH_BUTTON_ADDRESS, 0x1000005C
 
 .org 0x20
 # ------------------------- Prologo ------------------------- #
@@ -41,12 +36,15 @@ call EXT_IRQ0
 
 OTHER_INTERRUPTS:
 /* Instruções que verificam outras interrupções de hardware devem ser colocadas aqui */
-    br END_HANDLER
+    andi r12, et, 0b10 # verifica se ha interrupcao no IRQ1 (PUSH BUTTON)
+    beq r12, r0, END_HANDLER # vai para o epilogo
+    call EXT_IRQ1 # chama o IRQ1
 
 OTHER_EXCEPTIONS:
 /* Instruções que verificam outros tipos de exceções devem ser colocadas aqui */
 
 END_HANDLER:
+    /* Epilogo */
     ldw ra, 28(sp)
     ldw r8, 24(sp)
     ldw r9, 20(sp)
@@ -59,8 +57,11 @@ END_HANDLER:
     eret
 
 .org 0x100
-/* Rotina de serviço de interrupção para a interrupção de hardware desejada */
+/* Rotina de servico de interrupcao para a interrupcao de hardware desejada */
+/* Interrupcao do timer */
 EXT_IRQ0:
+    /* Tratando interrupcao de LED */
+
     /* */
     addi sp, sp, -4
     stw ra, 0(sp)
@@ -78,7 +79,27 @@ EXT_IRQ0:
     stwio r11, 0(r10)
     stw r0, 0(r8)
 
-    FIM_INTERRUPCAO:
+    /* Tratando interrupcao do cronometro */
+
+    INTERRUP_CRONOMETRO:
+    
+    movia r8, FLAG_CRONOMETRO
+    movi r14, 10000
+
+    ldw r10, 0(r8) # r10 = FLAG_CRONOMETRO
+    movi r14, 0
+
+    beq r10, r14, CRONOMETRO_INATIVO # FLAG_CRONOMETRO = 0 => cronometro inativo
+
+    movia r8, CONTAGEM_ATIVA
+    ldw r11, 0(r8) # r11 = CONTAGEM_ATIVA
+    beq r11, r0, CRONOMETRO_INATIVO # se contagem = 0 => cronometro pausado, logo nao chama cronometro
+    call CRONOMETRO
+
+    CRONOMETRO_INATIVO:
+    addi r10, r10, 1
+    movi r10, 0
+
     /* Desabilitar bit TO para limpar interrupcao */
     movia r8, BASE_ADDRESS_TIMER
     movi r9, 0b10
@@ -89,16 +110,50 @@ EXT_IRQ0:
     addi sp, sp, 4
     /* */
 
-    ret /* Retorna da rotina de serviço de interrupção */
+    ret /* Retorna da rotina de servico de interrupcao */
 
     APAGAR_LED:
         stwio r0, 0(r10)
         movi r9, 1
         stw r9, 0(r8)
-        br FIM_INTERRUPCAO
+        br INTERRUP_CRONOMETRO
+
+EXT_IRQ1:
+    /* Prologo */
+    addi sp, sp, -4
+    stw ra, 0(sp)
+    /* */
+
+    movia r8, PUSH_BUTTON_ADDRESS
+    
+    ldwio r9, 0(r8)
+    movi r10, 0b10
+    beq r10, r9, PAUSAR_CONTAGEM
+    br SAIR_INTERRUPCAO
+
+    PAUSAR_CONTAGEM:
+    movia r11, CONTAGEM_ATIVA
+    ldw r12, 0(r11)
+    beq r12, r0, RESUMIR_CONTAGEM
+    stw r0, 0(r11)
+    br SAIR_INTERRUPCAO
+
+    RESUMIR_CONTAGEM:
+    movi r13, 1
+    stw r13, 0(r11)
+
+    SAIR_INTERRUPCAO:
+    /* Sair da interrupcao */
+    stwio r0, 0(r8)
+
+    /* Epilogo */ 
+    ldw ra, (sp)
+    addi sp, sp, 4
+    /* */
+
+    ret
 
 .global _start
-
 _start:
     movia sp, STACK # configura end. do stack pointer
     mov fp, sp # copia end. inicial do sp ao frame pointer
@@ -108,6 +163,11 @@ _start:
     movia r7, BUFFER
     movia r8, 0xA # ascii enter
     movia r9, BASE_ADDRESS_TIMER
+    movia r13, PUSH_BUTTON_MASK
+
+    /* Ativar interrupcao no Push Button */
+    movi r11, 0b0010 # ativando KEY1
+    stwio r11, 0(r13)
 
     # ativar Timer (IRQ0) e Push Button (IRQ1) no ienable
     movi r15, 0b11
@@ -119,7 +179,7 @@ _start:
     /* Habilitar interrupcoes do timer (intervalos de 500ms) */
     
     # estabelecer periodo de contagem (baixa e alta)
-    movia r10, 25000000
+    movia r10, 50000000
     andi r11, r10, 0xFFFF # parte baixa
     srli r12, r10, 16 # parte alta
     stwio r11, 8(r9) # periodo de contagem inicial
@@ -186,20 +246,39 @@ SE_0:
     call LED
     br RETORNA
 SE_1:
+    movia r11, FLAG_CRONOMETRO
+    ldw r12, 0(r11)
+    beq r12, r0, CALL # Se cronometro ativo, desativa-lo
+    stw r0, 0(r11)
+
+    movia r11, DISPLAY_CRONOMETRO_CONTROL
+
+    /* Limpar contadores do cronometro, caso esteja ativo */
+    stb r0, 0(r11)
+    stb r0, 4(r11)
+    stb r0, 8(r11)
+    stb r0, 12(r11)
+
+    CALL:
     call NUM_TRIANGULAR
     br RETORNA
 SE_2:
     addi r7, r7, 1
     ldb r10, 0(r7)
 
-    movi r6, 0x30
+    beq r10, r0, CANCELA_CRONOMETRO
 
-    beq r10, r11, SE_20
-    # call CANCELA_CRONOMETRO
+    /* Inicia cronometro */
+    movia r11, FLAG_CRONOMETRO
+    movi r7, 1
+    stw r7, 0(r11) # FLAG_CRONOMETRO = 1
+    movia r11, CONTAGEM_ATIVA
+    stw r7, 0(r11) # CONTAGEM_ATIVA = 1
+
     br RETORNA
 
-    SE_20:
-        # call INICIA_CRONOMETRO
+    CANCELA_CRONOMETRO:
+        stw r0, 0(r11) # FLAG_CRONOMETRO = 0
 
 RETORNA:
     movia r6, TEXT_STRING
@@ -208,9 +287,57 @@ RETORNA:
 
 .org 0x500
 
+FLAG_LED:
+.word 0
+
+.global COPIA_END_LED
+COPIA_END_LED:
+.word 0
+
 .global BUFFER
 BUFFER:
 .skip 20
+
+/*
+    Controla os 4 displays 7seg para apresentar a contagem em:
+    4        3         2        1
+    milhar | centena | dezena | unidade
+*/
+.global DISPLAY_CRONOMETRO_CONTROL
+DISPLAY_CRONOMETRO_CONTROL:
+.word 0, 0, 0, 0
+
+FLAG_CRONOMETRO:
+.word 0
+
+/* 
+    1 - A contagem esta resumida
+    0 - A contagem esta pausada
+ */
+CONTAGEM_ATIVA:
+.word 0
+
+/*
+VALOR         CODIGO 7 SEG
+0             0111111 => 0x3f
+1             0000110 => 0x6
+2             1011011 => 0x5b
+3             1001111 => 0x4f
+4             1100110 => 0x66
+5             1101101 => 0x6d
+6             1111101 => 0x7d
+7             0000111 => 0x7
+8             1111111 => 0xff
+9             1100111 => 0x67
+A             1110111 => 0x77
+B             1111100 => 0x1f
+C             0111001 => 0x39
+D             1011110 => 0x5e
+E             1111001 => 0x79
+F             1110001 => 0x71
+*/
+DISPLAY_7SEG_MAP:
+.byte 0x3f, 0x6, 0x5b, 0x4f, 0x66, 0x6d, 0x7d, 0x7, 0xff, 0x67, 0x77, 0x7c, 0x39, 0x5e, 0x79, 0x71
 
 TEXT_STRING:
 .asciz "\nEntre com o comando: "
