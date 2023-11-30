@@ -86,7 +86,7 @@ EPILOGO:
 	ldw r15, 0(sp)
 	addi sp, sp, 40
 
-	ret
+ret
 
 .global COPIA_END_LED
 COPIA_END_LED:
