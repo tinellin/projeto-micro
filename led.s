@@ -62,7 +62,7 @@ LED:
 
 	CANCELA_LED:
 		movia r15, MASK_1
-		rol r15, r15, r11
+		rol r15, r15, r11 # rotacao de r15 a esquerda r11 vezes
 		ldwio r14, 0(r8) # obter bits de LEDS_VERMELHOS
 		and r15, r15, r14 # apagar bit desejado, e manter os outros bits acesos 
 		stwio r15, 0(r8)
@@ -71,6 +71,8 @@ LED:
 EPILOGO:
 	/* Copiar endereco do LED para a memoria */
 	movia r9, COPIA_END_LED
+
+    /* Epilogo de fato */
 	ldwio r10, 0(r8)
 	stw r10, 0(r9)
     
@@ -88,6 +90,10 @@ EPILOGO:
 
 ret
 
+/* 
+   Valor auxiliar para controlar os bits atuais do LED
+   i.e. nao apagar os LEDS que estao acesos
+ */
 .global COPIA_END_LED
 COPIA_END_LED:
 .word 0

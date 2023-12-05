@@ -26,7 +26,7 @@ NUM_TRIANGULAR:
   /* Calcular numero triangular (maior num. triangular representavel 32.385 - 7E81)*/
 
   ldwio r9, 0(r8) # obter conteudo do switch
-  beq r9, r0, FIM /* mudar para EPILOGO */
+  beq r9, r0, EPILOGO
 
   # beq r9, r0, EPILOGO # se switch = 0, nao calcular num. triangular
 
@@ -34,10 +34,10 @@ NUM_TRIANGULAR:
   addi r10, r9, 0x1 # r10 = (n+1)
   mov r12, r10 # r12 = r10
 
-  LOOP_NUM: /* mudar nome dps */
+  LOOP:
     add r10, r12, r10 # n*(r10)
     addi r11, r11, 0x1 # contador++
-    bne r11, r9, LOOP_NUM
+    bne r11, r9, LOOP
   
   srli r10, r10, 1 # n*(r10) / 2
 
@@ -59,7 +59,7 @@ NUM_TRIANGULAR:
   stbio r12, 0(r13)
   
   movi r9, 0xF
-  blt r10, r9, FIM
+  blt r10, r9, EPILOGO
 
   # segundo grupo de 4 bits
   andi r9, r10, 0xF0 # pegar 4 - 7 bits
@@ -69,7 +69,7 @@ NUM_TRIANGULAR:
   stbio r12, 1(r13) # escreve no display 7 seg
   
   movi r9, 0xFF
-  blt r10, r9, FIM /* mudar para EPILOGO */
+  blt r10, r9, EPILOGO
 
   # terceiro grupo de 4 bits
   andi r9, r10, 0xF00 # pegar 7 - 11
@@ -79,7 +79,7 @@ NUM_TRIANGULAR:
   stbio r12, 2(r13) # escreve no display 7 seg
 
   movi r9, 0xFFF
-  blt r10, r9, FIM /* mudar para EPILOGO */
+  blt r10, r9, EPILOGO
 
   # quarto grupo de 4 bits
   andi r9, r10, 0xF000 # pegar 12 - 15
@@ -88,8 +88,8 @@ NUM_TRIANGULAR:
   ldb r12, 0(r11)
   stbio r12, 3(r13) # escreve no display 7 seg
   
-  FIM:
-  /* EPILOGO */
+  # ------------------------- Epilogo ------------------------- #
+  EPILOGO:
   ldw ra, 36(sp)
   ldw fp, 32(sp)
   ldw r8, 28(sp)

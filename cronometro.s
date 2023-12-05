@@ -71,7 +71,7 @@ CRONOMETRO:
 
     DISPLAY_CRONOMETRO:
     movia r9, DISPLAY_CRONOMETRO_CONTROL
-    movi r14, 0 
+    movi r14, 0 # valor inicial do contador de displays
     movi r15, 4 # maximo uso 4 displays
 
     LOOP_CRONOMETRO_DISPLAY:
@@ -80,6 +80,7 @@ CRONOMETRO:
       ldw r10, 0(r9) # obter valor do controle
       add r13, r12, r10 # obter endereco mapeado na tabela
 
+      /* Inserir no display 7seg */
       ldb r13, 0(r13)
       stbio r13, 0(r8)
 
@@ -91,13 +92,13 @@ CRONOMETRO:
     
     FIM_LOOP_CRONOMETRO_DISPLAY:
     
-    /* Incrementar unidade */
+    /* Incrementar unidade em + 1 */
     movia r9, DISPLAY_CRONOMETRO_CONTROL
     ldw r10, 0(r9)
     addi r10, r10, 1
     stw r10, 0(r9)
 
-    # -------- Epilogo -------- #
+    # ------------------------- Epilogo ------------------------- #
     ldw ra, 36(sp)
     ldw fp, 32(sp)
     ldw r8, 28(sp)
@@ -111,7 +112,6 @@ CRONOMETRO:
     addi sp, sp, 40
 
     ret
-# ----------------------------------------------------------- # 
 
 /*
 VALOR BINARIO  7 SEG

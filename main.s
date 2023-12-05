@@ -66,7 +66,7 @@ EXT_IRQ0:
 
     /* */
     addi sp, sp, -4
-    stw ra, 0(sp)
+    stw ra, 0(sp) # devemos salvar o endereço de retorno
     /* */
     
     movia r8, FLAG_LED
@@ -123,7 +123,7 @@ EXT_IRQ0:
 EXT_IRQ1:
     /* Prologo */
     addi sp, sp, -4
-    stw ra, 0(sp)
+    stw ra, 0(sp) # devemos salvar o endereco de retorno da interrupcao
     /* */
 
     movia r8, PUSH_BUTTON_ADDRESS
@@ -299,15 +299,17 @@ DISPLAY_CRONOMETRO_CONTROL:
 .word 0, 0, 0, 0
 
 /* 
-    1 - A contagem esta resumida
     0 - A contagem esta pausada
+    1 - A contagem esta resumida
  */
 CONTAGEM_ATIVA:
 .word 0
 
+/* Controla se o cronometro esta ativo ou inativo  */
 FLAG_CRONOMETRO:
 .word 0
 
+/* Controla a limpeza dos LEDS (LEDS que sao apagados)  */
 FLAG_LED:
 .word 0
 
