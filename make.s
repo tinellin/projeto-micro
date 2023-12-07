@@ -92,21 +92,15 @@ EXT_IRQ0:
     INTERRUP_CRONOMETRO:
     
     movia r8, FLAG_CRONOMETRO
-    movi r14, 10000
-
-    ldw r10, 0(r8) # r10 = FLAG_CRONOMETRO
     movi r14, 0
 
-    beq r10, r14, CRONOMETRO_INATIVO # FLAG_CRONOMETRO = 0 => cronometro inativo
+    ldw r10, 0(r8) # r11 = FLAG_CRONOMETRO
 
-    movia r8, CONTAGEM_ATIVA
-    ldw r11, 0(r8) # r11 = CONTAGEM_ATIVA
-    beq r11, r0, CRONOMETRO_INATIVO # se contagem = 0 => cronometro pausado, logo nao chama cronometro
+    beq r10, r14, CRONOMETRO_INATIVO # FLAG_CRONOMETRO = 0 => cronometro inativo/pausado, logo nao chama cronometro
+
     call CRONOMETRO
 
     CRONOMETRO_INATIVO:
-    addi r10, r10, 1
-    movi r10, 0
 
     /* Desabilitar bit TO para limpar interrupcao */
     movia r8, BASE_ADDRESS_TIMER
@@ -140,7 +134,7 @@ EXT_IRQ1:
     br SAIR_INTERRUPCAO
 
     PAUSAR_CONTAGEM:
-    movia r11, CONTAGEM_ATIVA
+    movia r11, FLAG_CRONOMETRO
     ldw r12, 0(r11)
     beq r12, r0, RESUMIR_CONTAGEM
     stw r0, 0(r11)
@@ -274,19 +268,28 @@ SE_2:
     addi r7, r7, 1
     ldb r10, 0(r7)
 
-    beq r10, r0, CANCELA_CRONOMETRO
+    movi r7, 0x31 # 1
+    beq r10, r7, CANCELA_CRONOMETRO
 
     /* Inicia cronometro */
     movia r11, FLAG_CRONOMETRO
     movi r7, 1
     stw r7, 0(r11) # FLAG_CRONOMETRO = 1
-    movia r11, CONTAGEM_ATIVA
-    stw r7, 0(r11) # CONTAGEM_ATIVA = 1
 
     br RETORNA
 
     CANCELA_CRONOMETRO:
+        /* Cancela cronometro */
+        movia r11, FLAG_CRONOMETRO
         stw r0, 0(r11) # FLAG_CRONOMETRO = 0
+
+        movia r11, DISPLAY_CRONOMETRO_CONTROL
+
+        /* Limpar contadores do cronometro, caso esteja ativo */
+        stb r0, 0(r11)
+        stb r0, 4(r11)
+        stb r0, 8(r11)
+        stb r0, 12(r11)
 
 RETORNA:
     movia r6, TEXT_STRING
@@ -406,11 +409,13 @@ NUM_TRIANGULAR:
   /* Calcular numero triangular (maior num. triangular representavel 32.385 - 7E81)*/
 
   ldwio r9, 0(r8) # obter conteudo do switch
-  beq r9, r0, FIM /* mudar para EPILOGO */
+  
+  movi r12, 0x1
+  beq r9, r12, FIM # se switch = 0, nao calcular num. triangular
 
   # beq r9, r0, EPILOGO # se switch = 0, nao calcular num. triangular
 
-  movi r11, 0x1 # contador p/ n*(r10)
+  movia r11, 0x1 # contador p/ n*(r10)
   addi r10, r9, 0x1 # r10 = (n+1)
   mov r12, r10 # r12 = r10
 
@@ -598,7 +603,7 @@ CRONOMETRO:
     ret
 # ----------------------------------------------------------- # 
 
-.org 0x500
+# .org 0x500
 
 /*
     Controla os 4 displays 7seg para apresentar a contagem em:
@@ -609,14 +614,11 @@ CRONOMETRO:
 DISPLAY_CRONOMETRO_CONTROL:
 .word 0, 0, 0, 0
 
-FLAG_CRONOMETRO:
-.word 0
-
 /* 
-    1 - A contagem esta resumida
-    0 - A contagem esta pausada
+    1 - A contagem do cronometro esta ativa/resumida
+    0 - A contagem do cronometro esta inativa/pausada
  */
-CONTAGEM_ATIVA:
+FLAG_CRONOMETRO:
 .word 0
 
 FLAG_LED:

@@ -26,9 +26,9 @@ NUM_TRIANGULAR:
   /* Calcular numero triangular (maior num. triangular representavel 32.385 - 7E81)*/
 
   ldwio r9, 0(r8) # obter conteudo do switch
-  beq r9, r0, EPILOGO
-
-  # beq r9, r0, EPILOGO # se switch = 0, nao calcular num. triangular
+  
+  movi r12, 0x1
+  beq r9, r12, EPILOGO # se switch = 0, nao calcular num. triangular
 
   movi r11, 0x1 # contador p/ n*(r10)
   addi r10, r9, 0x1 # r10 = (n+1)
